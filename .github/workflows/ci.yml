@@ -43,7 +43,8 @@ jobs:
           -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
           -DCMAKE_CXX_COMPILER=${{ matrix.cxx }}
           -DLOGFORGE_REQUIRE_TESTS=ON
-          -DLOGFORGE_FETCH_GTEST=ON
+          -DLOGFORGE_FETCH_GTEST=ON 
+          -DLOGFORGE_FETCH_SPDLOG=ON
 
       - name: Build
         run: cmake --build build --parallel 4
@@ -71,7 +72,8 @@ jobs:
         run: >
           cmake -S . -B build -A x64
           -DLOGFORGE_REQUIRE_TESTS=ON
-          -DLOGFORGE_FETCH_GTEST=ON
+          -DLOGFORGE_FETCH_GTEST=ON 
+          -DLOGFORGE_FETCH_SPDLOG=ON
 
       - name: Build
         run: cmake --build build --config ${{ matrix.build_type }} --parallel 4
@@ -106,7 +108,8 @@ jobs:
           -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer -g"
           -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
           -DLOGFORGE_REQUIRE_TESTS=ON
-          -DLOGFORGE_FETCH_GTEST=ON
+          -DLOGFORGE_FETCH_GTEST=ON 
+          -DLOGFORGE_FETCH_SPDLOG=ON
 
       - name: Build
         run: cmake --build build --parallel 4
@@ -137,7 +140,8 @@ jobs:
           -DCMAKE_CXX_COMPILER=g++
           -DLOGFORGE_WERROR=ON
           -DLOGFORGE_REQUIRE_TESTS=ON
-          -DLOGFORGE_FETCH_GTEST=ON
+          -DLOGFORGE_FETCH_GTEST=ON 
+          -DLOGFORGE_FETCH_SPDLOG=ON
 
       - name: Build
         run: cmake --build build --parallel 4
@@ -165,6 +169,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DLOGFORGE_BUILD_TESTS=OFF \
             -DLOGFORGE_INSTALL=ON \
+            -DLOGFORGE_FETCH_SPDLOG=ON \
             -DCMAKE_INSTALL_PREFIX="$PWD/prefix"
           cmake --build build --parallel 4
           cmake --install build

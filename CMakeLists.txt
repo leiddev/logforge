@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(logforge
-    VERSION 0.3.0
+    VERSION 0.4.0
     DESCRIPTION "A small dependency-free logging bridge with a spdlog backend"
     LANGUAGES CXX)
 
@@ -33,6 +33,8 @@ else()
 endif()
 
 option(LOGFORGE_BUILD_TESTS   "Build the unit tests"                     ${LOGFORGE_IS_TOP_LEVEL})
+option(LOGFORGE_BUILD_SPDLOG  "Build the spdlog backend"                 ${LOGFORGE_IS_TOP_LEVEL})
+option(LOGFORGE_FETCH_SPDLOG  "Download spdlog instead of finding an installed one" OFF)
 option(LOGFORGE_INSTALL       "Generate install and package rules"        ${LOGFORGE_IS_TOP_LEVEL})
 option(LOGFORGE_REQUIRE_TESTS "Fail configure when GoogleTest is missing" OFF)
 option(LOGFORGE_FETCH_GTEST   "Download googletest when it is not installed" OFF)
@@ -99,6 +101,65 @@ else()
 endif()
 
 # ---------------------------------------------------------------------------
+# logforge::spdlog
+#
+# A static library, not a header-only one: spdlog's sinks are already compiled
+# into spdlog, and keeping our glue out of every consumer's translation units is
+# the point of having a backend target at all.
+#
+# Fetching is an explicit choice rather than a fallback so that CI and a
+# developer's machine cannot silently build against different spdlog versions.
+# ---------------------------------------------------------------------------
+if(LOGFORGE_BUILD_SPDLOG)
+    if(LOGFORGE_FETCH_SPDLOG)
+        include(FetchContent)
+        set(SPDLOG_BUILD_EXAMPLE OFF CACHE BOOL "" FORCE)
+        set(SPDLOG_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+        set(SPDLOG_BUILD_BENCH OFF CACHE BOOL "" FORCE)
+        # A build that vendors spdlog has to install it too: the exported
+        # logforge::spdlog names spdlog::spdlog as a usage requirement, and a
+        # prefix that only contains logforge cannot satisfy it.  Leaving this off
+        # makes install(EXPORT) fail with "requires target spdlog that is not in
+        # any export set", which is the check doing its job.
+        set(SPDLOG_INSTALL ON CACHE BOOL "" FORCE)
+        FetchContent_Declare(spdlog
+            GIT_REPOSITORY https://github.com/gabime/spdlog.git
+            GIT_TAG v1.17.0
+            GIT_SHALLOW TRUE)
+        FetchContent_MakeAvailable(spdlog)
+    else()
+        # 1.15 changed the UDP sink to take a config struct, which is the form
+        # the backend uses; older releases would need a compile-time split.
+        find_package(spdlog 1.15 CONFIG REQUIRED)
+    endif()
+
+    add_library(logforge_spdlog STATIC src/spdlog_backend.cpp)
+    add_library(logforge::spdlog ALIAS logforge_spdlog)
+    set_target_properties(logforge_spdlog PROPERTIES EXPORT_NAME spdlog)
+
+    # BUILD_INTERFACE, not a plain PRIVATE link: a static library records its
+    # private link dependencies in the export set wrapped in LINK_ONLY, and CMake
+    # then refuses to generate unless logforge_build_flags is exported too.  The
+    # flags are ours alone, so they stay out of the package.
+    target_link_libraries(logforge_spdlog
+        PUBLIC logforge::core spdlog::spdlog
+        PRIVATE $<BUILD_INTERFACE:logforge_build_flags>)
+    target_compile_features(logforge_spdlog PUBLIC cxx_std_11)
+
+    # spdlog's headers are treated as system headers.  A vendored (FetchContent)
+    # spdlog is a normal target rather than an imported one, so CMake does not do
+    # this by itself, and -Werror would then turn a warning inside spdlog into a
+    # failure of our build.
+    target_include_directories(logforge_spdlog SYSTEM PRIVATE
+        $<TARGET_PROPERTY:spdlog::spdlog,INTERFACE_INCLUDE_DIRECTORIES>)
+
+    # The UDP sink talks to Winsock directly and spdlog does not link it for us.
+    if(WIN32)
+        target_link_libraries(logforge_spdlog PRIVATE ws2_32)
+    endif()
+endif()
+
+# ---------------------------------------------------------------------------
 # Unit tests
 #
 # GoogleTest is optional so the library alone builds anywhere.  CI turns
@@ -161,6 +222,13 @@ if(LOGFORGE_BUILD_TESTS)
             logforge::core ${LOGFORGE_GTEST_LIBS} logforge_build_flags Threads::Threads)
         target_compile_definitions(macro_no_source_test PRIVATE LOGFORGE_SOURCE_LOCATION=0)
         add_test(NAME macro_no_source_test COMMAND macro_no_source_test)
+
+        if(LOGFORGE_BUILD_SPDLOG)
+            add_executable(spdlog_backend_test tests/spdlog_backend_test.cpp)
+            target_link_libraries(spdlog_backend_test PRIVATE
+                logforge::spdlog ${LOGFORGE_GTEST_LIBS} logforge_build_flags Threads::Threads)
+            add_test(NAME spdlog_backend_test COMMAND spdlog_backend_test)
+        endif()
     elseif(LOGFORGE_REQUIRE_TESTS)
         message(FATAL_ERROR
             "GoogleTest not found and LOGFORGE_REQUIRE_TESTS is ON. "
@@ -181,7 +249,14 @@ endif()
 if(LOGFORGE_INSTALL)
     include(CMakePackageConfigHelpers)
 
-    install(TARGETS logforge_core EXPORT logforgeTargets)
+    # The backend is a static library whose usage requirements name
+    # spdlog::spdlog, so it has to travel in the same export.
+    set(LOGFORGE_INSTALL_TARGETS logforge_core)
+    if(LOGFORGE_BUILD_SPDLOG)
+        list(APPEND LOGFORGE_INSTALL_TARGETS logforge_spdlog)
+    endif()
+
+    install(TARGETS ${LOGFORGE_INSTALL_TARGETS} EXPORT logforgeTargets)
     install(DIRECTORY include/logforge DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/include/logforge/version.hpp
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/logforge)

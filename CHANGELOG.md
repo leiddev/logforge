@@ -10,6 +10,39 @@ All notable changes to this project are documented here. The format follows
 
 - Nothing yet.
 
+## [0.4.0] - 2026-11-06
+
+The spdlog backend. A record now has somewhere to go that rotates, colours and
+forwards over UDP.
+
+### Added
+
+- `logforge::SpdlogBackend`, a `Logger` implementation behind a `Config` struct:
+  minimum level, colour console, plain or rotating file, UDP, and a pattern.
+  pimpl, so no spdlog header is required to install a backend and no spdlog
+  version is baked into the public surface.
+- `native()` for the underlying `spdlog::logger`, `set_pattern()` and `flush()`.
+- The record is handed to spdlog through its `string_view` overload, so a message
+  that the renderer already produced is never parsed by fmt a second time.
+- `component` becomes a `"component: "` prefix on the message body -- identical
+  to what `StderrLogger` writes, so the two backends say the same thing.
+- Source location travels as a `source_loc`, which makes `%s`/`%g`/`%#` work.
+- `logforge::parse_level()`, a case-insensitive reader for configuration text
+  accepting the canonical names plus `warning`, `err` and `fatal`. It leaves the
+  caller's default untouched when the text is not a level, so a typo cannot
+  silently lower the verbosity.
+- Tests: level filtering including `off`, pattern output, component prefixing,
+  source location in the pattern, pattern changes after construction, the native
+  handle, and an empty configuration falling back to a sink.
+
+### Changed
+
+- `logforge::spdlog` requires spdlog 1.15 or newer (the UDP sink takes a config
+  struct from that release).
+- A build that fetches spdlog also installs it: `SPDLOG_INSTALL` is forced on,
+  because a prefix containing only logforge cannot satisfy the exported backend's
+  `spdlog::spdlog` usage requirement.
+
 ## [0.3.0] - 2026-11-06
 
 The renderer and the macros. A call site can now write

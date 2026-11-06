@@ -17,8 +17,8 @@ spdlog backend and a renderer for `{}`-style format strings.
 - **Backends are optional.** `logforge::core` alone is enough to compile a
   producer; the spdlog backend is a separate target you link only if you want it.
 
-> Status: **0.3.0, API not frozen.** The core interface and the macros are in
-> place; the backend lands in the milestones listed at the bottom.
+> Status: **0.4.0, API not frozen.** Core, macros and the spdlog backend are in
+> place; documentation and the `1.0.0` tag are the last milestone.
 
 ## Dependency graph
 
@@ -51,6 +51,8 @@ a link-time choice instead of an `#include` in a public header.
 
 - CMake 3.16 or newer
 - A C++11 compiler (GCC 7+, Clang 6+, MSVC 2017+)
+- spdlog 1.15 or newer, only for `logforge::spdlog` (1.15 changed the UDP sink to
+  take a config struct; CI builds against 1.17.0, which is what xec vendors)
 - GoogleTest, only for the tests (`LOGFORGE_REQUIRE_TESTS` / `LOGFORGE_FETCH_GTEST`)
 
 ## Build and test
@@ -100,15 +102,51 @@ void Pad::dispatch() {
 }
 ```
 
+## The spdlog backend
+
+```cpp
+#include <logforge/spdlog_backend.hpp>
+
+logforge::SpdlogBackend::Config config;
+config.level = logforge::Level::info;
+config.file_path = "logs/pipeline.log";   // empty: no file
+config.max_file_bytes = 10 * 1024 * 1024; // 0: one file, no rotation
+config.max_files = 5;
+config.udp_host = "10.0.0.7";             // empty: no UDP sink
+config.udp_port = 5140;
+config.pattern = "[%Y-%m-%d %H:%M:%S.%e] [%l] [%s:%#] %v";
+
+logforge::SpdlogBackend backend(config);
+logforge::set_default(&backend);
+```
+
+The sinks are spdlog's, so a line written to a rotation, a colour console and a
+UDP collector at once costs nothing extra. `backend.native()` hands out the
+underlying `spdlog::logger` for everything this struct does not cover -- named
+loggers, custom sinks, spdlog's backtrace buffer.
+
+A record's `component` becomes a `"component: "` prefix on the message body, the
+same text `StderrLogger` produces, so changing backends changes where a line goes
+and how the pattern decorates it -- not what it says. Source location goes to
+spdlog as a `source_loc`, which is what makes `%s`/`%g`/`%#` work.
+
 ## Options
 
 | Option | Default (top level) | Meaning |
 |---|---|---|
 | `LOGFORGE_BUILD_TESTS` | `ON` | Build the unit tests |
+| `LOGFORGE_BUILD_SPDLOG` | `ON` | Build the `logforge::spdlog` backend |
+| `LOGFORGE_FETCH_SPDLOG` | `OFF` | Download spdlog instead of finding an installed one |
 | `LOGFORGE_INSTALL` | `ON` | Generate install and `find_package` rules |
 | `LOGFORGE_REQUIRE_TESTS` | `OFF` | Fail configure instead of skipping when GoogleTest is missing |
 | `LOGFORGE_FETCH_GTEST` | `OFF` | Download googletest when it is not installed |
 | `LOGFORGE_WERROR` | `OFF` | Treat warnings in this repository's own targets as errors |
+
+Fetching is an explicit choice rather than a fallback, so CI and a developer's
+machine cannot quietly build against different spdlog versions. A build that
+fetches spdlog also installs it into the same prefix: the exported
+`logforge::spdlog` names `spdlog::spdlog` as a usage requirement, and a prefix
+without spdlog cannot satisfy it.
 
 As a subproject (`add_subdirectory`) everything defaults to off except the
 library itself, so vendoring logforge adds build time and no surprises.

@@ -5,8 +5,11 @@ cmake_minimum_required(VERSION 3.16)
 # install prefix, which is the only reliable way to catch a broken export().
 project(logforge_consumer LANGUAGES CXX)
 
-find_package(logforge 0.1 REQUIRED)
+find_package(logforge 0.4 REQUIRED)
 
 add_executable(logforge_consumer main.cpp)
-target_link_libraries(logforge_consumer PRIVATE logforge::core)
+# Both targets on purpose: linking logforge::spdlog proves that the package
+# config pulls spdlog in through find_dependency before the imported targets are
+# defined.
+target_link_libraries(logforge_consumer PRIVATE logforge::core logforge::spdlog)
 target_compile_features(logforge_consumer PRIVATE cxx_std_11)
