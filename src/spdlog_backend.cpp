@@ -80,8 +80,8 @@ SpdlogBackend::SpdlogBackend(const Config &config) : impl_(new Impl()) {
         impl_->sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
     }
 
-    impl_->logger = std::make_shared<spdlog::logger>("logforge", impl_->sinks.begin(),
-                                                    impl_->sinks.end());
+    impl_->logger = std::make_shared<spdlog::logger>(
+        config.name.empty() ? "logforge" : config.name, impl_->sinks.begin(), impl_->sinks.end());
 
     // Our own enabled() is the filter; spdlog's must not disagree with it, so it
     // is set to the same level.  A caller that changes it through native() gets

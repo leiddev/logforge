@@ -165,6 +165,36 @@ TEST(SpdlogBackendTest, NativeHandsOutTheSpdlogLogger) {
     EXPECT_EQ("logforge", backend.native()->name());
 }
 
+// The name is the consumer's, not ours: a program whose configuration carries one
+// passes it in the struct.  spdlog has no rename, so a backend built with the
+// wrong name cannot be corrected afterwards.
+TEST(SpdlogBackendTest, TheNameComesFromTheConfiguration) {
+    const std::string path = fresh_file("logforge_name.txt");
+    logforge::SpdlogBackend::Config config = file_config(path, logforge::Level::info);
+    config.name = "xec";
+    config.pattern = "%n|%v";
+
+    logforge::SpdlogBackend backend(config);
+    logforge::log_to(&backend, logforge::Level::info, "started");
+    backend.flush();
+
+    ASSERT_NE(static_cast<spdlog::logger *>(0), backend.native());
+    EXPECT_EQ("xec", backend.native()->name());
+    EXPECT_EQ("xec|started\n", normalize_eol(read_file(path)));
+}
+
+// An empty name is a configuration slip, not a reason to build a logger spdlog
+// cannot identify.
+TEST(SpdlogBackendTest, AnEmptyNameFallsBackToTheDefault) {
+    logforge::SpdlogBackend::Config config = file_config(fresh_file("logforge_name_empty.txt"),
+                                                         logforge::Level::info);
+    config.name.clear();
+
+    logforge::SpdlogBackend backend(config);
+    ASSERT_NE(static_cast<spdlog::logger *>(0), backend.native());
+    EXPECT_EQ("logforge", backend.native()->name());
+}
+
 // A backend with no sink would accept records and drop them; the constructor
 // falls back to the console instead.
 TEST(SpdlogBackendTest, AnEmptyConfigurationStillHasASink) {

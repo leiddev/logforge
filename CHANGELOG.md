@@ -4,6 +4,18 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-11-06
+
+### Added
+
+- `SpdlogBackend::Config::name` sets the name of the underlying spdlog logger,
+  defaulting to `"logforge"`. It is what the registry knows the logger by and what
+  a pattern's `%n` prints. The alternative a consumer had was renaming the logger
+  after construction, which spdlog does not offer at any version this backend
+  supports, so a program that keeps its logger name in configuration had to build
+  the spdlog logger itself and lose everything else this class does. An empty name
+  falls back to the default rather than producing a logger spdlog cannot identify.
+
 ## [1.2.0] - 2026-11-06
 
 ### Added

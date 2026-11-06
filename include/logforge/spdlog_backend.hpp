@@ -30,10 +30,18 @@ public:
     struct Config {
         // Records below this level are dropped by enabled().  Level::off turns
         // logging off completely.
-        Config() : level(Level::info), console(true), max_file_bytes(10 * 1024 * 1024),
-                   max_files(5), udp_port(0) {}
+        Config() : level(Level::info), console(true), name("logforge"),
+                   max_file_bytes(10 * 1024 * 1024), max_files(5), udp_port(0) {}
 
         Level level;
+
+        // What spdlog's registry knows the logger by, and what a pattern's %n
+        // prints.  It is a label, not a destination: two backends with the same
+        // name write to their own sinks, and the registry keeps whichever was
+        // installed last as the default.  A consumer whose configuration has a
+        // logger name -- most do -- passes it here instead of renaming the
+        // logger afterwards, which spdlog does not offer.
+        std::string name;
 
         // A colour sink on stdout.
         bool console;

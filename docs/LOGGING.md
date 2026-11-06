@@ -225,6 +225,7 @@ logforge::set_default(&backend);
 | Field | Meaning |
 |---|---|
 | `level` | minimum level; `Level::off` silences everything |
+| `name` | the logger's name in spdlog's registry, and what `%n` prints; default `"logforge"` |
 | `console` | a colour sink on stdout |
 | `file_path` | empty: no file |
 | `max_file_bytes` | 0: one file that never rotates |
