@@ -1,0 +1,10 @@
+@PACKAGE_INIT@
+
+# logforge::core has no dependencies.  The backend target logforge::spdlog does,
+# and it declares them itself, so no find_dependency() call is needed here until
+# that target is added -- at which point spdlog becomes a find_dependency of the
+# package as a whole.
+
+include("${CMAKE_CURRENT_LIST_DIR}/logforgeTargets.cmake")
+
+check_required_components(logforge)

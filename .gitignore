@@ -1,0 +1,12 @@
+build/
+build-*/
+consumer-build/
+prefix/
+out/
+cmake-build-*/
+.cache/
+compile_commands.json
+.vs/
+.vscode/
+*.user
+CMakeUserPresets.json

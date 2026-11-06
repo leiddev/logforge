@@ -1,0 +1,8 @@
+# Normalise line endings so that a Windows checkout and a Linux checkout of the
+# same commit are byte identical.  xec vendors this library as a verbatim subtree
+# copy, and a mixed-ending subtree copy shows up as a whole-file diff.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.zip binary
