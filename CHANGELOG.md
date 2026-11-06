@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2026-11-06
+
+### Fixed
+
+- `SpdlogBackend::Config`'s constructor initialised `console` before `name`, the
+  reverse of their declaration order. Compilers that warn about that with
+  `-Wreorder` -- GCC does, MSVC does not -- rejected the header under `-Werror`,
+  so 1.3.0 did not build for consumers with warnings as errors. The member order is
+  unchanged; the initialiser list now follows it.
+
 ## [1.3.0] - 2026-11-06
 
 ### Added

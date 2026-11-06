@@ -30,7 +30,7 @@ public:
     struct Config {
         // Records below this level are dropped by enabled().  Level::off turns
         // logging off completely.
-        Config() : level(Level::info), console(true), name("logforge"),
+        Config() : level(Level::info), name("logforge"), console(true),
                    max_file_bytes(10 * 1024 * 1024), max_files(5), udp_port(0) {}
 
         Level level;

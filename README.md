@@ -17,7 +17,7 @@ spdlog backend and a renderer for `{}`-style format strings.
 - **Backends are optional.** `logforge::core` alone is enough to compile a
   producer; the spdlog backend is a separate target you link only if you want it.
 
-> Status: **1.3.0.** The 1.0.0 API is frozen; a breaking change from here needs a
+> Status: **1.3.1.** The 1.0.0 API is frozen; a breaking change from here needs a
 > major version.
 
 Full guide: [docs/LOGGING.md](docs/LOGGING.md) -- the interface, where a line
