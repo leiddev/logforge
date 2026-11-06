@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(logforge
-    VERSION 0.4.0
+    VERSION 1.0.0
     DESCRIPTION "A small dependency-free logging bridge with a spdlog backend"
     LANGUAGES CXX)
 
@@ -156,6 +156,38 @@ if(LOGFORGE_BUILD_SPDLOG)
     # The UDP sink talks to Winsock directly and spdlog does not link it for us.
     if(WIN32)
         target_link_libraries(logforge_spdlog PRIVATE ws2_32)
+    endif()
+endif()
+
+# ---------------------------------------------------------------------------
+# Examples
+#
+# Built and run by CI, because an example that stopped compiling is the first
+# sign that a header is no longer self sufficient.
+# ---------------------------------------------------------------------------
+option(LOGFORGE_BUILD_EXAMPLES "Build the examples" ${LOGFORGE_IS_TOP_LEVEL})
+
+if(LOGFORGE_BUILD_EXAMPLES)
+    function(logforge_add_example name)
+        add_executable(${name} examples/${name}.cpp)
+        target_link_libraries(${name} PRIVATE logforge::core logforge_build_flags)
+        # Only register an example as a smoke test when testing is on; the
+        # example itself is buildable either way.
+        if(LOGFORGE_BUILD_TESTS)
+            add_test(NAME example_${name} COMMAND ${name})
+        endif()
+    endfunction()
+
+    logforge_add_example(quickstart)
+    logforge_add_example(scoped_binding)
+
+    if(LOGFORGE_BUILD_SPDLOG)
+        add_executable(backend_configuration examples/backend_configuration.cpp)
+        target_link_libraries(backend_configuration PRIVATE
+            logforge::spdlog logforge_build_flags)
+        if(LOGFORGE_BUILD_TESTS)
+            add_test(NAME example_backend_configuration COMMAND backend_configuration)
+        endif()
     endif()
 endif()
 

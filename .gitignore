@@ -3,6 +3,7 @@ build-*/
 consumer-build/
 prefix/
 out/
+*.log
 cmake-build-*/
 .cache/
 compile_commands.json

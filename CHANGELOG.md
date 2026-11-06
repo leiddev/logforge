@@ -10,6 +10,29 @@ All notable changes to this project are documented here. The format follows
 
 - Nothing yet.
 
+## [1.0.0] - 2026-11-06
+
+The API is frozen. Rendering, the interface, the macros and the spdlog backend
+are what a producer and a backend can rely on from here; a breaking change needs
+a major version.
+
+### Added
+
+- `docs/LOGGING.md`: the shape of a log line, the interface and its synchronous
+  contract, where a line goes (thread binding, process default, lifetime and
+  thread rules), macro and specifier tables, backend configuration, how to write
+  a backend, level-name parsing, and a migration table from a pipeforge-style
+  layer, from raw spdlog and from an adapter that already holds a string.
+- Examples, built and executed by CI: `quickstart`, `scoped_binding` (per-object
+  routing) and `backend_configuration` (rotating file, console, optional UDP).
+- `LOGFORGE_BUILD_EXAMPLES` option, on by default at the top level.
+
+### Changed
+
+- A build that fetches spdlog installs it into the same prefix, so
+  `find_package(logforge)` followed by linking `logforge::spdlog` works out of the
+  box.
+
 ## [0.4.0] - 2026-11-06
 
 The spdlog backend. A record now has somewhere to go that rotates, colours and

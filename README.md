@@ -17,8 +17,12 @@ spdlog backend and a renderer for `{}`-style format strings.
 - **Backends are optional.** `logforge::core` alone is enough to compile a
   producer; the spdlog backend is a separate target you link only if you want it.
 
-> Status: **0.4.0, API not frozen.** Core, macros and the spdlog backend are in
-> place; documentation and the `1.0.0` tag are the last milestone.
+> Status: **1.0.0, API frozen.** Everything below is stable; a breaking change
+> from here needs a major version.
+
+Full guide: [docs/LOGGING.md](docs/LOGGING.md) -- the interface, where a line
+goes, the format specifiers, backend configuration, writing a backend, and
+migrating an existing logging layer.
 
 ## Dependency graph
 
@@ -74,7 +78,7 @@ ctest --test-dir build -C Debug --output-on-failure
 ## Use it
 
 ```cmake
-find_package(logforge 0.1 REQUIRED)
+find_package(logforge 1.0 REQUIRED)
 target_link_libraries(app PRIVATE logforge::core)      # or logforge::spdlog
 ```
 
@@ -178,11 +182,12 @@ story at all.
 ## Repository layout
 
 ```
-include/logforge/     public headers (core)
-src/                  the spdlog backend (added with that target)
+include/logforge/     public headers (core, macros, backends)
+src/                  the spdlog backend
 cmake/                package config and generated version header template
+docs/                 LOGGING.md, the full guide
 tests/                unit tests; tests/consumer builds against an install prefix
-examples/             small programs, one per feature
+examples/             quickstart, scoped_binding, backend_configuration
 .github/workflows/    the CI matrix
 ```
 
@@ -195,7 +200,7 @@ examples/             small programs, one per feature
 | M3 | Non-throwing renderer and the macros (`LOGFORGE_LOG_*`, `LOG_*` compat) |
 | M4 | `logforge::spdlog` backend: sinks, patterns, level mapping, config |
 | M5 | Examples, docs, `v1.0.0` tag |
-| M6 | pipeforge 5.0.0 consumes `logforge::core`; its own log layer is deleted |
+| M6 | pipeforge 6.0.0 consumes `logforge::core`; its own log layer is deleted |
 | M7 | xec migrates its three logging vocabularies onto this one |
 
 ## License

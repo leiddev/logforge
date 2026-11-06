@@ -168,6 +168,7 @@ jobs:
           cmake -S . -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DLOGFORGE_BUILD_TESTS=OFF \
+            -DLOGFORGE_BUILD_EXAMPLES=OFF \
             -DLOGFORGE_INSTALL=ON \
             -DLOGFORGE_FETCH_SPDLOG=ON \
             -DCMAKE_INSTALL_PREFIX="$PWD/prefix"

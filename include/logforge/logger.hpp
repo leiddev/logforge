@@ -20,7 +20,10 @@ struct Record {
     Level level;
     const char *text;
     std::size_t size;
-    const char *component; // optional tag, e.g. "udp" or an element name
+    // Optional tags.  Borrowed, not owned: they must stay valid for the length of
+    // the call, which is all a synchronous backend may rely on.  A caller with a
+    // std::string passes c_str() and keeps the string alive across the statement.
+    const char *component; // e.g. "udp" or an element name
     const char *file;      // optional source location
     int line;              // 0 when unknown
 };
