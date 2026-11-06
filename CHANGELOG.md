@@ -4,11 +4,16 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.1.0] - 2026-11-06
 
 ### Added
 
-- Nothing yet.
+- `logforge::set_current(logger)`: binds a logger to the calling thread without a
+  scope and returns the previous one. `ScopedBinding` is now defined in terms of
+  it, so the two can never disagree about which slot they write. The function
+  exists for the two callers that cannot use a scope -- a compatibility shim that
+  has to keep a "set and hand back the previous logger" signature, and a test that
+  wants to leave the thread unbound.
 
 ## [1.0.0] - 2026-11-06
 

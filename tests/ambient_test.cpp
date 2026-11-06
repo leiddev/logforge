@@ -71,6 +71,39 @@ TEST_F(AmbientTest, BindingNullFallsBackToTheDefault) {
     EXPECT_EQ(&fallback, logforge::current());
 }
 
+// set_current() is the scope-less form: it has to write the same slot the macros
+// read, and hand back what was there so the caller can put it back.
+TEST_F(AmbientTest, SetCurrentBindsAndReturnsThePrevious) {
+    SilentLogger fallback;
+    SilentLogger first;
+    SilentLogger second;
+    logforge::set_default(&fallback);
+
+    EXPECT_EQ(static_cast<logforge::Logger *>(0), logforge::set_current(&first));
+    EXPECT_EQ(&first, logforge::current());
+
+    EXPECT_EQ(&first, logforge::set_current(&second));
+    EXPECT_EQ(&second, logforge::current());
+
+    EXPECT_EQ(&second, logforge::set_current(0));
+    EXPECT_EQ(&fallback, logforge::current());
+}
+
+// A ScopedBinding built while set_current() is in force restores what
+// set_current() left behind, not the process default.
+TEST_F(AmbientTest, ScopedBindingRestoresASetCurrentBinding) {
+    SilentLogger outer;
+    SilentLogger inner;
+
+    logforge::set_current(&outer);
+    {
+        const logforge::ScopedBinding binding(&inner);
+        EXPECT_EQ(&inner, logforge::current());
+    }
+    EXPECT_EQ(&outer, logforge::current());
+    logforge::set_current(0);
+}
+
 TEST_F(AmbientTest, NullLoggerSilencesAScopeOnPurpose) {
     logforge::NullLogger silence;
     SilentLogger fallback;

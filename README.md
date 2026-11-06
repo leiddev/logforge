@@ -17,8 +17,8 @@ spdlog backend and a renderer for `{}`-style format strings.
 - **Backends are optional.** `logforge::core` alone is enough to compile a
   producer; the spdlog backend is a separate target you link only if you want it.
 
-> Status: **1.0.0, API frozen.** Everything below is stable; a breaking change
-> from here needs a major version.
+> Status: **1.1.0.** The 1.0.0 API is frozen; a breaking change from here needs a
+> major version.
 
 Full guide: [docs/LOGGING.md](docs/LOGGING.md) -- the interface, where a line
 goes, the format specifiers, backend configuration, writing a backend, and
@@ -200,8 +200,11 @@ examples/             quickstart, scoped_binding, backend_configuration
 | M3 | Non-throwing renderer and the macros (`LOGFORGE_LOG_*`, `LOG_*` compat) |
 | M4 | `logforge::spdlog` backend: sinks, patterns, level mapping, config |
 | M5 | Examples, docs, `v1.0.0` tag |
-| M6 | pipeforge 6.0.0 consumes `logforge::core`; its own log layer is deleted |
+| M6 | pipeforge 5.0.0 consumes `logforge::core`; its own log layer is deleted |
 | M7 | xec migrates its three logging vocabularies onto this one |
+
+`v1.1.0` adds `set_current()` -- a binding that is not tied to a scope -- while
+pipeforge integrates. Nothing else moved, so a 1.0.0 consumer needs no edits.
 
 ## License
 

@@ -56,6 +56,19 @@ inline void set_default(Logger *logger) {
     detail::default_slot().store(logger, std::memory_order_release);
 }
 
+// Binds a logger to the current thread until something else replaces it, and
+// returns whichever logger was bound before.
+//
+// ScopedBinding is the spelling to prefer: it restores the previous binding on
+// every exit path, including an exception.  This exists for the two cases that
+// cannot use a scope -- a compatibility shim keeping a "set and hand back the
+// previous one" signature, and a test that wants to leave the thread unbound.
+inline Logger *set_current(Logger *logger) {
+    Logger *const previous = detail::current_slot();
+    detail::current_slot() = logger;
+    return previous;
+}
+
 // Binds a logger to the current thread for the lifetime of the object.
 //
 // Nesting is supported: each binding restores whichever logger was current when
@@ -64,9 +77,7 @@ inline void set_default(Logger *logger) {
 // default; bind a NullLogger to silence a scope on purpose.
 class ScopedBinding {
 public:
-    explicit ScopedBinding(Logger *logger) : previous_(detail::current_slot()) {
-        detail::current_slot() = logger;
-    }
+    explicit ScopedBinding(Logger *logger) : previous_(set_current(logger)) {}
 
     ~ScopedBinding() { detail::current_slot() = previous_; }
 

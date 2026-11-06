@@ -104,6 +104,10 @@ void Pad::dispatch() {
 ```
 
 - **Nesting** works: each binding restores whatever was current when it was built.
+- **`set_current()`** binds without a scope and returns the previous logger, for
+  the place where a scope cannot be used (a compatibility shim, or a test that
+  wants to unbind with `set_current(nullptr)`). `ScopedBinding` is still the
+  spelling to prefer: it restores on every exit path, including an exception.
 - **Binding `nullptr`** does not mean silence, it means "no thread-specific
   logger", so the process default still applies. To silence a scope on purpose,
   bind a `NullLogger`.
@@ -299,7 +303,7 @@ logforge::parse_level(json["level"].c_str(), level);
 | `pipeforge::ILogger` | `logforge::Logger` |
 | `pipeforge::LogLevel` | `logforge::Level` |
 | `pipeforge::current_logger()` | `logforge::current()` |
-| `pipeforge::set_current_logger(p)` | `logforge::ScopedBinding b(p)` |
+| `pipeforge::set_current_logger(p)` | `logforge::ScopedBinding b(p)`, or `logforge::set_current(p)` |
 | `pipeforge::set_default_logger(p)` | `logforge::set_default(p)` |
 | `pipeforge::detail::LogBinding` | `logforge::ScopedBinding` |
 | `pipeforge::StderrLogger` | `logforge::StderrLogger` |
