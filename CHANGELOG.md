@@ -10,6 +10,39 @@ All notable changes to this project are documented here. The format follows
 
 - Nothing yet.
 
+## [0.3.0] - 2026-11-06
+
+The renderer and the macros. A call site can now write
+`LOGFORGE_LOG_INFO("pad {} refused {}", name, count)` and have it filtered,
+rendered and delivered.
+
+### Added
+
+- `logforge::format_message()`, a non-throwing renderer for `{}` text with
+  `{:4}`, `{:x}`, `{:X}`, `{:04x}`, `{:.2f}`, `{:7.2f}` and `{{`/`}}`. A
+  specifier that does not apply to its argument is ignored; a malformed one is
+  copied verbatim; a message with fewer arguments than braces keeps the braces it
+  cannot fill. Nothing is truncated and nothing throws -- a mistake shows up in
+  the text, which is what an element thread needs.
+- Floats default to the shortest of 15 and 17 significant digits that reads back
+  as the same value, matching the JSON writer's spelling rather than fmt's
+  shortest-of-all.
+- A pointer that is not text prints as `0x...`; a null `const char*` prints
+  `(null)`; a null format text renders as the empty message.
+- `LOGFORGE_LOG_*` macros for the six levels, plus `LOGFORGE_LOG(level, ...)`,
+  `LOGFORGE_LOG_AT(logger, ...)`, `LOGFORGE_LOG_TAGGED(tag, ...)` and
+  `LOGFORGE_LOG_AT_TAGGED(...)`. The level is checked before the arguments are
+  rendered, so a disabled statement costs one virtual call; the logger and the
+  level expression are each evaluated once.
+- `LOGFORGE_SOURCE_LOCATION=0` compiles `__FILE__`/`__LINE__` out of the binary.
+- `logforge/compat/legacy_names.hpp`, an opt-in header defining the bare
+  `LOG_TRACE`/`LOG_DEBUG`/`LOG_INFO`/`LOG_WARN`/`LOG_ERR`/`LOG_CRITICAL` names.
+  It is kept out of the umbrella header on purpose: those names belong to glog
+  and syslog, and a `#ifndef` guard turns include order into silent behaviour.
+- 62 assertions covering the renderer (ported from pipeforge's `log_text_test`),
+  macro level mapping, disabled-statement evaluation, per-object routing, tags,
+  the legacy aliases, and a target built with source location compiled out.
+
 ## [0.2.0] - 2026-11-06
 
 The core interface. A producer can now emit a record and a backend can receive

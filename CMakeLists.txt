@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(logforge
-    VERSION 0.2.0
+    VERSION 0.3.0
     DESCRIPTION "A small dependency-free logging bridge with a spdlog backend"
     LANGUAGES CXX)
 
@@ -151,6 +151,16 @@ if(LOGFORGE_BUILD_TESTS)
         logforge_add_test(logger_test)
         logforge_add_test(ambient_test)
         logforge_add_test(stderr_logger_test)
+        logforge_add_test(format_test)
+        logforge_add_test(macro_test)
+
+        # Same headers, but with the source location compiled out; the macro has
+        # to pass a literal null in that configuration.
+        add_executable(macro_no_source_test tests/macro_no_source_test.cpp)
+        target_link_libraries(macro_no_source_test PRIVATE
+            logforge::core ${LOGFORGE_GTEST_LIBS} logforge_build_flags Threads::Threads)
+        target_compile_definitions(macro_no_source_test PRIVATE LOGFORGE_SOURCE_LOCATION=0)
+        add_test(NAME macro_no_source_test COMMAND macro_no_source_test)
     elseif(LOGFORGE_REQUIRE_TESTS)
         message(FATAL_ERROR
             "GoogleTest not found and LOGFORGE_REQUIRE_TESTS is ON. "

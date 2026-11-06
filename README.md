@@ -17,8 +17,8 @@ spdlog backend and a renderer for `{}`-style format strings.
 - **Backends are optional.** `logforge::core` alone is enough to compile a
   producer; the spdlog backend is a separate target you link only if you want it.
 
-> Status: **0.2.0, API not frozen.** The core interface is stable; the backend
-> and renderer land in the milestones listed at the bottom.
+> Status: **0.3.0, API not frozen.** The core interface and the macros are in
+> place; the backend lands in the milestones listed at the bottom.
 
 ## Dependency graph
 
@@ -74,6 +74,30 @@ ctest --test-dir build -C Debug --output-on-failure
 ```cmake
 find_package(logforge 0.1 REQUIRED)
 target_link_libraries(app PRIVATE logforge::core)      # or logforge::spdlog
+```
+
+```cpp
+#include <logforge/macros.hpp>
+#include <logforge/stderr_logger.hpp>
+
+int main() {
+    logforge::StderrLogger logger(logforge::Level::info);
+    logforge::set_default(&logger);
+
+    LOGFORGE_LOG_INFO("pad {} refused {} message(s)", "in", 3);   // [info] pad in refused 3 message(s)
+    LOGFORGE_LOG_WARN("dropped {:04x} frames", 255);              // [warn] dropped 00ff frames
+}
+```
+
+Contexts that own their own logger bind it for the duration of a callback, and
+anything inside -- a macro in a third-party header, say -- writes to the right
+place:
+
+```cpp
+void Pad::dispatch() {
+    const logforge::ScopedBinding binding(logger_);
+    LOGFORGE_LOG_DEBUG("tick {}", tick_);   // goes to logger_, on this thread only
+}
 ```
 
 ## Options
