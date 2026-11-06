@@ -58,6 +58,29 @@ TEST(SpdlogBackendTest, EnabledFollowsLevelAndTreatsOffAsSilence) {
     EXPECT_FALSE(backend.enabled(logforge::Level::off));
 }
 
+TEST(SpdlogBackendTest, EveryLevelReachesItsOwnSpdlogLevel) {
+    // The table that decides both the %l field and the filters spdlog applies on
+    // its own sinks. It is the one thing that can go wrong without anything
+    // failing: a level mapped one step off still writes a line, just labelled as
+    // another level, and no caller is ever told.
+    const std::string path = fresh_file("logforge_levels.txt");
+    logforge::SpdlogBackend::Config config = file_config(path, logforge::Level::trace);
+    config.pattern = "%l|%v";
+
+    logforge::SpdlogBackend backend(config);
+    logforge::log_to(&backend, logforge::Level::trace, "a", 1);
+    logforge::log_to(&backend, logforge::Level::debug, "b", 1);
+    logforge::log_to(&backend, logforge::Level::info, "c", 1);
+    logforge::log_to(&backend, logforge::Level::warn, "d", 1);
+    logforge::log_to(&backend, logforge::Level::error, "e", 1);
+    logforge::log_to(&backend, logforge::Level::critical, "f", 1);
+    backend.flush();
+
+    // spdlog spells warn and error its own way; the body is still ours.
+    EXPECT_EQ("trace|a\ndebug|b\ninfo|c\nwarning|d\nerror|e\ncritical|f\n",
+              normalize_eol(read_file(path)));
+}
+
 TEST(SpdlogBackendTest, WritesThroughTheConfiguredPattern) {
     const std::string path = fresh_file("logforge_pattern.txt");
     logforge::SpdlogBackend::Config config = file_config(path, logforge::Level::trace);

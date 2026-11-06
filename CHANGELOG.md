@@ -4,6 +4,17 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `spdlog_backend_test.cpp` now checks the level table end to end: every level,
+  trace to critical, rendered through `%l`, so a mapping that is one step off --
+  which writes a line under the wrong name and tells no one -- fails a test. The
+  check was seven assertions in the library this backend was extracted from and
+  did not come over with the code. Tests are not part of the installed package, so
+  1.1.0 remains what a consumer pins.
+
 ## [1.1.0] - 2026-11-06
 
 ### Added
