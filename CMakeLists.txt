@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(logforge
-    VERSION 0.1.0
+    VERSION 0.2.0
     DESCRIPTION "A small dependency-free logging bridge with a spdlog backend"
     LANGUAGES CXX)
 
@@ -135,14 +135,22 @@ if(LOGFORGE_BUILD_TESTS)
             set(LOGFORGE_GTEST_LIBS GTest::gtest GTest::gtest_main)
         endif()
 
+        # Test-only dependency: the library itself never creates a thread, but
+        # ambient_test has to prove that a thread binding is invisible to other
+        # threads, and std::thread needs the right flags on some toolchains.
+        find_package(Threads REQUIRED)
+
         function(logforge_add_test name)
             add_executable(${name} tests/${name}.cpp)
             target_link_libraries(${name} PRIVATE
-                logforge::core ${LOGFORGE_GTEST_LIBS} logforge_build_flags)
+                logforge::core ${LOGFORGE_GTEST_LIBS} logforge_build_flags Threads::Threads)
             add_test(NAME ${name} COMMAND ${name})
         endfunction()
 
         logforge_add_test(level_test)
+        logforge_add_test(logger_test)
+        logforge_add_test(ambient_test)
+        logforge_add_test(stderr_logger_test)
     elseif(LOGFORGE_REQUIRE_TESTS)
         message(FATAL_ERROR
             "GoogleTest not found and LOGFORGE_REQUIRE_TESTS is ON. "

@@ -17,7 +17,7 @@ spdlog backend and a renderer for `{}`-style format strings.
 - **Backends are optional.** `logforge::core` alone is enough to compile a
   producer; the spdlog backend is a separate target you link only if you want it.
 
-> Status: **0.1.0, API not frozen.** The core interface is stable; the backend
+> Status: **0.2.0, API not frozen.** The core interface is stable; the backend
 > and renderer land in the milestones listed at the bottom.
 
 ## Dependency graph
@@ -129,8 +129,8 @@ examples/             small programs, one per feature
 | Milestone | Content |
 |---|---|
 | M1 | Repository skeleton, `logforge::core` with `Level`, CI matrix, install rules |
-| M2 | `Logger`, `NullLogger`, `StderrLogger`, thread-local binding, macros |
-| M3 | Non-throwing renderer, ported from pipeforge's `log_text.hpp` with its tests |
+| M2 | `Logger`, `Record`, `NullLogger`, `StderrLogger`, thread-local binding |
+| M3 | Non-throwing renderer and the macros (`LOGFORGE_LOG_*`, `LOG_*` compat) |
 | M4 | `logforge::spdlog` backend: sinks, patterns, level mapping, config |
 | M5 | Examples, docs, `v1.0.0` tag |
 | M6 | pipeforge 5.0.0 consumes `logforge::core`; its own log layer is deleted |
