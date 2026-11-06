@@ -244,6 +244,21 @@ named loggers, custom sinks and spdlog's backtrace buffer. `backend.flush()`
 and `backend.set_pattern()` are the two operations a program needs often enough to
 deserve a wrapper.
 
+`backend.native_shared()` returns the same logger as a `shared_ptr`, which is what
+`spdlog::set_default_logger()` takes. A program in the middle of a migration -- or
+one that depends on a library logging through spdlog's global logger -- points
+spdlog at these sinks, and the lines that do not go through logforge still land in
+the file:
+
+```cpp
+spdlog::set_default_logger(backend.native_shared());
+```
+
+That is a bridge, not a destination: a raw `spdlog::info()` builds its text with
+fmt, so it can still throw on a bad format string, and it bypasses the ambient
+binding. Port the call sites that are yours and leave the bridge for the
+dependency you cannot edit.
+
 Constructing a backend can throw `spdlog_ex` (an unwritable path, for example).
 That happens at startup, in one place, which is the right time and place for it.
 

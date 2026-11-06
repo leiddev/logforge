@@ -80,6 +80,18 @@ public:
     // The pointer is owned by this object and lives as long as it does.
     spdlog::logger *native() const;
 
+    // The same logger as a shared pointer, the form spdlog's registry takes.
+    // This is the bridge for a program that still has raw spdlog calls -- a
+    // translation unit that has not been ported, a library that logs through
+    // spdlog's global logger -- and wants those lines on these sinks rather than
+    // on spdlog's built-in default:
+    //
+    //     spdlog::set_default_logger(backend.native_shared());
+    //
+    // spdlog then owns a reference, so the logger outlives this object and a
+    // line in flight cannot reach freed memory.
+    std::shared_ptr<spdlog::logger> native_shared() const;
+
 private:
     struct Impl;
     std::unique_ptr<Impl> impl_;

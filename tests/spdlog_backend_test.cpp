@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include <spdlog/logger.h>
+#include <spdlog/spdlog.h>
 
 #include <cstdio>
 #include <fstream>
@@ -94,6 +95,27 @@ TEST(SpdlogBackendTest, WritesThroughTheConfiguredPattern) {
     // spdlog's own level name for warn is "warning"; the pattern is spdlog's to
     // spell, and the body is ours ("component: text").
     EXPECT_EQ("info|udp: hello\nwarning|plain\n", normalize_eol(read_file(path)));
+}
+
+TEST(SpdlogBackendTest, NativeSharedKeepsRawSpdlogCallsOnTheseSinks) {
+    // The bridge for a program that still logs through spdlog directly: a file
+    // that has not been ported, or a library that calls spdlog::info(). Without
+    // it those lines go to spdlog's own default logger and vanish from the file
+    // this backend configured -- a silent regression the day a dependency starts
+    // logging behind the caller's back.
+    const std::string path = fresh_file("logforge_native_shared.txt");
+    logforge::SpdlogBackend::Config config = file_config(path, logforge::Level::info);
+    config.pattern = "%l|%v";
+
+    logforge::SpdlogBackend backend(config);
+
+    const std::shared_ptr<spdlog::logger> previous = spdlog::default_logger();
+    spdlog::set_default_logger(backend.native_shared());
+    spdlog::info("raw {}", 7);
+    backend.flush();
+    spdlog::set_default_logger(previous);
+
+    EXPECT_EQ("info|raw 7\n", normalize_eol(read_file(path)));
 }
 
 TEST(SpdlogBackendTest, DropsRecordsBelowTheConfiguredLevel) {

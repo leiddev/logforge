@@ -17,7 +17,7 @@ spdlog backend and a renderer for `{}`-style format strings.
 - **Backends are optional.** `logforge::core` alone is enough to compile a
   producer; the spdlog backend is a separate target you link only if you want it.
 
-> Status: **1.1.0.** The 1.0.0 API is frozen; a breaking change from here needs a
+> Status: **1.2.0.** The 1.0.0 API is frozen; a breaking change from here needs a
 > major version.
 
 Full guide: [docs/LOGGING.md](docs/LOGGING.md) -- the interface, where a line
@@ -55,8 +55,11 @@ a link-time choice instead of an `#include` in a public header.
 
 - CMake 3.16 or newer
 - A C++11 compiler (GCC 7+, Clang 6+, MSVC 2017+)
-- spdlog 1.15 or newer, only for `logforge::spdlog` (1.15 changed the UDP sink to
-  take a config struct; CI builds against 1.17.0, which is what xec vendors)
+- spdlog 1.10 or newer, only for `logforge::spdlog`. The backend uses the UDP sink
+  in its config-struct form, which 1.10 already has; CI builds against 1.17.0. A
+  build that already has an `spdlog::spdlog` target -- a project that vendors
+  spdlog, or one that adds this directory to a tree where spdlog is a subproject --
+  is used as it is, with no version check and nothing downloaded.
 - GoogleTest, only for the tests (`LOGFORGE_REQUIRE_TESTS` / `LOGFORGE_FETCH_GTEST`)
 
 ## Build and test
@@ -128,6 +131,15 @@ The sinks are spdlog's, so a line written to a rotation, a colour console and a
 UDP collector at once costs nothing extra. `backend.native()` hands out the
 underlying `spdlog::logger` for everything this struct does not cover -- named
 loggers, custom sinks, spdlog's backtrace buffer.
+
+`backend.native_shared()` hands out the same logger as a `shared_ptr`, which is
+the form spdlog's registry takes. That is the bridge for a program that still has
+raw spdlog calls, or that depends on a library which logs through spdlog's global
+logger: those lines land on these sinks instead of spdlog's built-in default.
+
+```cpp
+spdlog::set_default_logger(backend.native_shared());
+```
 
 A record's `component` becomes a `"component: "` prefix on the message body, the
 same text `StderrLogger` produces, so changing backends changes where a line goes

@@ -131,4 +131,6 @@ void SpdlogBackend::set_pattern(const std::string &pattern) {
 
 spdlog::logger *SpdlogBackend::native() const { return impl_->logger.get(); }
 
+std::shared_ptr<spdlog::logger> SpdlogBackend::native_shared() const { return impl_->logger; }
+
 } // namespace logforge

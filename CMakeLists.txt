@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(logforge
-    VERSION 1.1.0
+    VERSION 1.2.0
     DESCRIPTION "A small dependency-free logging bridge with a spdlog backend"
     LANGUAGES CXX)
 
@@ -109,9 +109,21 @@ endif()
 #
 # Fetching is an explicit choice rather than a fallback so that CI and a
 # developer's machine cannot silently build against different spdlog versions.
+# A build that already has spdlog -- a project that vendors it, or one that adds
+# this directory to a tree where spdlog is a subproject -- names the target and
+# none of the three branches below runs, so nothing is downloaded and nothing is
+# installed twice.
 # ---------------------------------------------------------------------------
 if(LOGFORGE_BUILD_SPDLOG)
-    if(LOGFORGE_FETCH_SPDLOG)
+    if(TARGET spdlog::spdlog)
+        message(STATUS "logforge: using the spdlog::spdlog target of this build")
+        if(LOGFORGE_INSTALL)
+            message(STATUS
+                "logforge: an spdlog target from the surrounding build is not in "
+                "this project's export set; leave LOGFORGE_INSTALL off, or install "
+                "spdlog as a package and find it")
+        endif()
+    elseif(LOGFORGE_FETCH_SPDLOG)
         include(FetchContent)
         set(SPDLOG_BUILD_EXAMPLE OFF CACHE BOOL "" FORCE)
         set(SPDLOG_BUILD_TESTS OFF CACHE BOOL "" FORCE)
@@ -128,9 +140,13 @@ if(LOGFORGE_BUILD_SPDLOG)
             GIT_SHALLOW TRUE)
         FetchContent_MakeAvailable(spdlog)
     else()
-        # 1.15 changed the UDP sink to take a config struct, which is the form
-        # the backend uses; older releases would need a compile-time split.
-        find_package(spdlog 1.15 CONFIG REQUIRED)
+        # The backend needs the UDP sink in its config-struct form, which spdlog
+        # 1.10 already has; the floor is the oldest release whose logging call
+        # takes a logforge::Record without a conversion (a source location plus a
+        # string view).  A vendored target is not version checked: the consumer
+        # chose it, and the build fails at the first missing header if it is too
+        # old, which is a better message than a version comparison.
+        find_package(spdlog 1.10 CONFIG REQUIRED)
     endif()
 
     add_library(logforge_spdlog STATIC src/spdlog_backend.cpp)

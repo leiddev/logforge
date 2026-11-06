@@ -4,16 +4,33 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.2.0] - 2026-11-06
 
 ### Added
 
-- `spdlog_backend_test.cpp` now checks the level table end to end: every level,
-  trace to critical, rendered through `%l`, so a mapping that is one step off --
-  which writes a line under the wrong name and tells no one -- fails a test. The
-  check was seven assertions in the library this backend was extracted from and
-  did not come over with the code. Tests are not part of the installed package, so
-  1.1.0 remains what a consumer pins.
+- `SpdlogBackend::native_shared()` returns the underlying `spdlog::logger` as a
+  `shared_ptr`, the form `spdlog::set_default_logger()` takes. It is the bridge for
+  a program that still has raw spdlog call sites, or that depends on a library
+  logging through spdlog's global logger: those lines now reach the sinks this
+  backend configured instead of spdlog's built-in default, which is a real
+  regression when a dependency logs behind the caller's back. The shared pointer
+  keeps the logger alive past the backend, so spdlog can be left holding it.
+- `spdlog_backend_test.cpp` also checks the level table end to end: every level,
+  trace to critical, rendered through `%l`, so a mapping one step off -- which
+  writes a line under the wrong name and tells no one -- fails a test. The check
+  was seven assertions in the library this backend was extracted from and did not
+  come over with the code. Tests are not part of the installed package.
+
+### Changed
+
+- The spdlog backend is used from an existing `spdlog::spdlog` target when the
+  surrounding build already has one, with no `find_package` and nothing
+  downloaded. That is how a project that vendors spdlog consumes this package.
+- The documented spdlog floor is 1.10, not 1.15. The UDP sink has had its
+  config-struct constructor since 1.10 and nothing else in the backend is newer;
+  the earlier floor came from a changelog rather than from the code. A vendored
+  target is not version checked at all: the build fails at the first missing
+  header, which is a clearer message than a version comparison.
 
 ## [1.1.0] - 2026-11-06
 
