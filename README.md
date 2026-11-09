@@ -17,7 +17,7 @@ spdlog backend and a renderer for `{}`-style format strings.
 - **Backends are optional.** `logforge::core` alone is enough to compile a
   producer; the spdlog backend is a separate target you link only if you want it.
 
-> Status: **1.3.1.** The 1.0.0 API is frozen; a breaking change from here needs a
+> Status: **1.4.0.** The 1.0.0 API is frozen; a breaking change from here needs a
 > major version.
 
 Full guide: [docs/LOGGING.md](docs/LOGGING.md) -- the interface, where a line
@@ -119,27 +119,47 @@ config.level = logforge::Level::info;
 config.file_path = "logs/pipeline.log";   // empty: no file
 config.max_file_bytes = 10 * 1024 * 1024; // 0: one file, no rotation
 config.max_files = 5;
+config.create_directories = true;         // make "logs" before opening the file
 config.udp_host = "10.0.0.7";             // empty: no UDP sink
 config.udp_port = 5140;
 config.pattern = "[%Y-%m-%d %H:%M:%S.%e] [%l] [%s:%#] %v";
 
-logforge::SpdlogBackend backend(config);
-logforge::set_default(&backend);
+logforge::SpdlogBackend backend(config);  // strict: a sink that fails throws
+backend.install_as_default();             // both defaults the process has
 ```
+
+A program that must come up even when a destination does not opens the backend
+one sink at a time:
+
+```cpp
+logforge::SpdlogBackend::Report report;
+std::unique_ptr<logforge::SpdlogBackend> backend =
+    logforge::SpdlogBackend::open(config, &report);
+if (!backend) {
+    // nothing could be built at all; StderrLogger is the last resort
+}
+if (!report.file.empty()) {
+    LOGFORGE_LOG_WARN("file sink dropped: {}", report.file);
+}
+```
+
+`open()` is the same backend with two differences: a sink that cannot be opened
+is named in `report` and the others are kept, and `nullptr` comes back only when
+no destination at all could be built. It does not make the degradation quiet for
+you -- printing `report.file` is the caller's job, because only the caller knows
+where a warning can still be seen.
+
+`install_as_default()` sets both defaults a process has: logforge's (macros,
+ambient) and spdlog's registry (its free functions, and libraries that log
+behind the caller's back). Two calls were easy to make one of, and the
+half-installed state is invisible until the file is missing lines.
 
 The sinks are spdlog's, so a line written to a rotation, a colour console and a
 UDP collector at once costs nothing extra. `backend.native()` hands out the
 underlying `spdlog::logger` for everything this struct does not cover -- named
-loggers, custom sinks, spdlog's backtrace buffer.
-
-`backend.native_shared()` hands out the same logger as a `shared_ptr`, which is
-the form spdlog's registry takes. That is the bridge for a program that still has
-raw spdlog calls, or that depends on a library which logs through spdlog's global
-logger: those lines land on these sinks instead of spdlog's built-in default.
-
-```cpp
-spdlog::set_default_logger(backend.native_shared());
-```
+loggers, custom sinks, spdlog's backtrace buffer; `native_shared()` is the same
+logger as the `shared_ptr` spdlog's registry takes, for a program that installs
+it by hand.
 
 A record's `component` becomes a `"component: "` prefix on the message body, the
 same text `StderrLogger` produces, so changing backends changes where a line goes

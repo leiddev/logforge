@@ -4,6 +4,35 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-11-09
+
+### Added
+
+- `SpdlogBackend::open(config, report)` builds the same backend one destination at
+  a time. A sink that cannot be opened is named in the `Report` and the others are
+  kept; the result is null only when no destination at all could be built, and the
+  constructor's console fallback is kept. This is the shape a daemon needs -- it
+  must come up and say what it lost -- and it was 50 lines of ladder in a consumer
+  before, with the failure swallowed: the process kept printing that it was writing
+  `logs/xec-log.txt` after dropping that sink. `open()` does not print the report
+  itself, because only the caller knows where a warning can still be seen.
+- `SpdlogBackend::Config::create_directories` creates the directories that contain
+  `file_path`, outermost first, before the file is opened. No spdlog sink does
+  this, so every program that ships `logs/pipeline.log` in its configuration either
+  wrote the platform-specific `mkdir` walk itself or died on its first start. Off
+  by default: a library should not create directories it was not asked to create.
+- `SpdlogBackend::install_as_default()` installs the backend as both defaults a
+  process has: logforge's (macros, ambient binding) and spdlog's registry (its free
+  functions, and libraries that log through spdlog's global logger). Doing only
+  the first was a half-install that showed up as missing lines in the file and
+  nothing else.
+
+### Changed
+
+- A `SpdlogBackend` that is the process default clears logforge's default when it
+  is destroyed, instead of leaving a pointer to a dead logger behind while the
+  program shuts down.
+
 ## [1.3.1] - 2026-11-06
 
 ### Fixed

@@ -219,7 +219,7 @@ and the real backend.
 ```cpp
 logforge::SpdlogBackend::Config config;
 logforge::SpdlogBackend backend(config);
-logforge::set_default(&backend);
+backend.install_as_default();
 ```
 
 | Field | Meaning |
@@ -230,38 +230,71 @@ logforge::set_default(&backend);
 | `file_path` | empty: no file |
 | `max_file_bytes` | 0: one file that never rotates |
 | `max_files` | rotation depth |
+| `create_directories` | create the directories that contain `file_path` before opening it |
 | `udp_host`, `udp_port` | empty host or zero port: no UDP sink |
 | `pattern` | spdlog pattern for every sink; empty keeps spdlog's default |
 
 A configuration that ends up with no sink at all falls back to the console rather
 than accepting records and dropping them.
 
+`create_directories` is off by default because a library should not create
+directories it was not asked to create. Turn it on in a program that ships
+`logs/pipeline.log` in its configuration and would otherwise die on its first
+start, before the directory exists. It is best effort: a directory that cannot be
+made is reported by the file sink that then cannot open the file.
+
 `component` becomes a `"component: "` prefix on the message body -- exactly what
 `StderrLogger` writes -- so changing backends changes where a line goes and how
 the pattern decorates it, not what it says.
 
+`install_as_default()` sets both defaults a process has: logforge's (macros, the
+ambient binding) and spdlog's registry (its free functions, plus any library that
+logs through spdlog's global logger). Doing only the first is the classic
+half-install: the file is missing the lines of everything that went through
+spdlog, and nothing reports it. A backend that is installed and then destroyed
+clears logforge's default again, so the process does not keep a dangling pointer
+while it shuts down.
+
 `backend.native()` returns the `spdlog::logger`, which is the escape hatch for
 named loggers, custom sinks and spdlog's backtrace buffer. `backend.flush()`
 and `backend.set_pattern()` are the two operations a program needs often enough to
-deserve a wrapper.
+deserve a wrapper. `native_shared()` is the same logger as the `shared_ptr` that
+`spdlog::set_default_logger()` takes, for a program that installs it by hand
+rather than through `install_as_default()`.
 
-`backend.native_shared()` returns the same logger as a `shared_ptr`, which is what
-`spdlog::set_default_logger()` takes. A program in the middle of a migration -- or
-one that depends on a library logging through spdlog's global logger -- points
-spdlog at these sinks, and the lines that do not go through logforge still land in
-the file:
-
-```cpp
-spdlog::set_default_logger(backend.native_shared());
-```
-
-That is a bridge, not a destination: a raw `spdlog::info()` builds its text with
-fmt, so it can still throw on a bad format string, and it bypasses the ambient
-binding. Port the call sites that are yours and leave the bridge for the
-dependency you cannot edit.
+### `SpdlogBackend::open()`
 
 Constructing a backend can throw `spdlog_ex` (an unwritable path, for example).
-That happens at startup, in one place, which is the right time and place for it.
+That happens at startup, in one place, which is the right time and place for a
+program whose configuration is supposed to be right.
+
+A daemon that must come up anyway asks for the same backend one sink at a time:
+
+```cpp
+logforge::SpdlogBackend::Report report;
+std::unique_ptr<logforge::SpdlogBackend> backend =
+    logforge::SpdlogBackend::open(config, &report);
+
+if (!backend) {
+    logforge::set_default(&fallback_stderr_logger);   // nothing could be built
+} else {
+    backend->install_as_default();
+    if (!report.file.empty()) {
+        LOGFORGE_LOG_WARN("file sink dropped: {}", report.file);
+    }
+}
+```
+
+Each destination is tried on its own: one that cannot be opened is named in
+`report` and the others are kept, and `nullptr` comes back only when no
+destination at all could be built. The constructor's fallback is kept -- a
+configuration that names no destination still gets a console.
+
+`open()` does not report the degradation for the caller, and deliberately so:
+only the caller knows where a warning can still be seen, and a library that
+decided to print it would be writing to a sink it may just have failed to build.
+The `Report` is the message; printing it is the program's first act after
+startup.
 
 ## 7. Writing a backend
 

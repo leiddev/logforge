@@ -1,3 +1,4 @@
+#include <logforge/ambient.hpp>
 #include <logforge/spdlog_backend.hpp>
 
 #include <gtest/gtest.h>
@@ -7,6 +8,7 @@
 
 #include <cstdio>
 #include <fstream>
+#include <memory>
 #include <sstream>
 #include <string>
 
@@ -50,8 +52,8 @@ logforge::SpdlogBackend::Config file_config(const std::string &path, logforge::L
 }
 
 TEST(SpdlogBackendTest, EnabledFollowsLevelAndTreatsOffAsSilence) {
-    const logforge::SpdlogBackend backend(file_config(fresh_file("logforge_enabled.txt"),
-                                                      logforge::Level::warn));
+    const logforge::SpdlogBackend backend(
+        file_config(fresh_file("logforge_enabled.txt"), logforge::Level::warn));
 
     EXPECT_FALSE(backend.enabled(logforge::Level::info));
     EXPECT_TRUE(backend.enabled(logforge::Level::warn));
@@ -158,8 +160,8 @@ TEST(SpdlogBackendTest, PatternCanBeChangedAfterConstruction) {
 }
 
 TEST(SpdlogBackendTest, NativeHandsOutTheSpdlogLogger) {
-    logforge::SpdlogBackend backend(file_config(fresh_file("logforge_native.txt"),
-                                                logforge::Level::info));
+    logforge::SpdlogBackend backend(
+        file_config(fresh_file("logforge_native.txt"), logforge::Level::info));
 
     ASSERT_NE(static_cast<spdlog::logger *>(0), backend.native());
     EXPECT_EQ("logforge", backend.native()->name());
@@ -186,8 +188,8 @@ TEST(SpdlogBackendTest, TheNameComesFromTheConfiguration) {
 // An empty name is a configuration slip, not a reason to build a logger spdlog
 // cannot identify.
 TEST(SpdlogBackendTest, AnEmptyNameFallsBackToTheDefault) {
-    logforge::SpdlogBackend::Config config = file_config(fresh_file("logforge_name_empty.txt"),
-                                                         logforge::Level::info);
+    logforge::SpdlogBackend::Config config =
+        file_config(fresh_file("logforge_name_empty.txt"), logforge::Level::info);
     config.name.clear();
 
     logforge::SpdlogBackend backend(config);
@@ -206,6 +208,122 @@ TEST(SpdlogBackendTest, AnEmptyConfigurationStillHasASink) {
     EXPECT_FALSE(backend.enabled(logforge::Level::critical));
     ASSERT_NE(static_cast<spdlog::logger *>(0), backend.native());
     SUCCEED();
+}
+
+void write_text_file(const std::string &path, const char *text) {
+    std::FILE *file = std::fopen(path.c_str(), "wb");
+    ASSERT_NE(static_cast<std::FILE *>(0), file);
+    std::fputs(text, file);
+    std::fclose(file);
+}
+
+// The reason open() exists: a daemon that cannot write its file still comes up and
+// says so.  The console is kept, the exception is left for the caller to report --
+// running on without the file is the one outcome worse than stopping, so it must
+// never be silent.
+TEST(SpdlogBackendTest, OpenKeepsWhatItCanAndNamesWhatItCannot) {
+    // A regular file where a directory has to be: creating the directory fails,
+    // and the sink cannot open the path below it.  That is the shape of a missing
+    // or read-only directory without needing one.
+    const std::string blocker = fresh_file("logforge_blocker");
+    write_text_file(blocker, "not a directory");
+
+    logforge::SpdlogBackend::Config config;
+    config.level = logforge::Level::info;
+    config.pattern = "%v";
+    config.file_path = blocker + "/nested/log.txt";
+    config.max_file_bytes = 0;
+
+    logforge::SpdlogBackend::Report report;
+    const std::unique_ptr<logforge::SpdlogBackend> backend =
+        logforge::SpdlogBackend::open(config, &report);
+
+    ASSERT_NE(static_cast<logforge::SpdlogBackend *>(0), backend.get());
+    EXPECT_TRUE(report.console.empty());
+    EXPECT_TRUE(report.udp.empty());
+    EXPECT_FALSE(report.file.empty());
+    EXPECT_FALSE(report.empty());
+    EXPECT_TRUE(backend->enabled(logforge::Level::info));
+}
+
+// The flag a program that ships "logs/pipeline.log" needs: the directory that
+// contains the file is created before the sink opens it, on either platform.
+TEST(SpdlogBackendTest, OpenCreatesTheDirectoriesItWasToldTo) {
+    const std::string path = ::testing::TempDir() + "logforge_mkdir/a/b/log.txt";
+    std::remove(path.c_str());
+
+    logforge::SpdlogBackend::Config config = file_config(path, logforge::Level::info);
+    config.pattern = "%v";
+    config.create_directories = true;
+
+    logforge::SpdlogBackend::Report report;
+    const std::unique_ptr<logforge::SpdlogBackend> backend =
+        logforge::SpdlogBackend::open(config, &report);
+
+    ASSERT_NE(static_cast<logforge::SpdlogBackend *>(0), backend.get());
+    EXPECT_TRUE(report.empty());
+
+    logforge::log_to(backend.get(), logforge::Level::info, "nested");
+    backend->flush();
+    EXPECT_EQ("nested\n", normalize_eol(read_file(path)));
+}
+
+// Same default as the constructor: a configuration that names no destination gets
+// a console, not a logger whose records disappear.
+TEST(SpdlogBackendTest, OpenWithNoDestinationFallsBackToTheConsole) {
+    logforge::SpdlogBackend::Config config;
+    config.console = false;
+    config.level = logforge::Level::off;
+
+    logforge::SpdlogBackend::Report report;
+    const std::unique_ptr<logforge::SpdlogBackend> backend =
+        logforge::SpdlogBackend::open(config, &report);
+
+    ASSERT_NE(static_cast<logforge::SpdlogBackend *>(0), backend.get());
+    EXPECT_TRUE(report.empty());
+}
+
+// One call, both defaults: logforge's (macros, ambient) and spdlog's (its own free
+// functions, which libraries that log behind the caller's back use).  Forgetting
+// the second one sends those lines to spdlog's built-in console logger.
+TEST(SpdlogBackendTest, InstallAsDefaultServesBothLoggers) {
+    const std::string path = fresh_file("logforge_install.txt");
+    logforge::SpdlogBackend::Config config = file_config(path, logforge::Level::info);
+    config.pattern = "%v";
+
+    logforge::Logger *const previous_logforge = logforge::default_logger();
+    const std::shared_ptr<spdlog::logger> previous_spdlog = spdlog::default_logger();
+
+    logforge::SpdlogBackend backend(config);
+    backend.install_as_default();
+
+    EXPECT_EQ(&backend, logforge::current());
+    EXPECT_EQ(backend.native(), spdlog::default_logger().get());
+
+    logforge::log_to(logforge::current(), logforge::Level::info, "via logforge");
+    spdlog::default_logger()->info("via spdlog");
+    backend.flush();
+
+    EXPECT_EQ("via logforge\nvia spdlog\n", normalize_eol(read_file(path)));
+
+    logforge::set_default(previous_logforge);
+    spdlog::set_default_logger(previous_spdlog);
+}
+
+// A backend that was installed and then destroyed must not leave the process
+// default pointing at itself: programs destroy theirs on the way out and keep
+// logging while they do.
+TEST(SpdlogBackendTest, ADestroyedBackendDoesNotStayTheDefault) {
+    logforge::Logger *const before = logforge::default_logger();
+    const std::shared_ptr<spdlog::logger> previous_spdlog = spdlog::default_logger();
+    {
+        logforge::SpdlogBackend backend(
+            file_config(fresh_file("logforge_destroyed.txt"), logforge::Level::info));
+        backend.install_as_default();
+        EXPECT_EQ(&backend, logforge::default_logger());
+    }
+    EXPECT_EQ(before, logforge::default_logger());
+    spdlog::set_default_logger(previous_spdlog);
 }
 
 } // namespace

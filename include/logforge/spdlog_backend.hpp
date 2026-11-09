@@ -30,8 +30,10 @@ public:
     struct Config {
         // Records below this level are dropped by enabled().  Level::off turns
         // logging off completely.
-        Config() : level(Level::info), name("logforge"), console(true),
-                   max_file_bytes(10 * 1024 * 1024), max_files(5), udp_port(0) {}
+        Config()
+            : level(Level::info), name("logforge"), console(true), max_file_bytes(10 * 1024 * 1024),
+              max_files(5), create_directories(false), udp_port(0) {
+        }
 
         Level level;
 
@@ -52,6 +54,13 @@ public:
         std::size_t max_file_bytes;
         std::size_t max_files;
 
+        // Create the directories that contain file_path, outermost first, before
+        // the file is opened.  No spdlog sink does that, so a program that ships
+        // "logs/pipeline.log" in its configuration either creates "logs" itself or
+        // dies on its first start.  Best effort: a directory that cannot be made
+        // is reported by the sink that then cannot open the file.
+        bool create_directories;
+
         // An empty host means no UDP sink.  The datagram payload is the sink's
         // own pattern, which spdlog defaults to the date, level and message.
         std::string udp_host;
@@ -62,8 +71,45 @@ public:
         std::string pattern;
     };
 
+    // What open() could not build.  An empty member means "built", or "not asked
+    // for in the configuration"; the strings are the exceptions spdlog threw, which
+    // is the most specific thing a program can put in a warning.
+    struct Report {
+        Report() {
+        }
+
+        std::string console;
+        std::string file;
+        std::string udp;
+
+        bool empty() const {
+            return console.empty() && file.empty() && udp.empty();
+        }
+    };
+
     SpdlogBackend();
     explicit SpdlogBackend(const Config &config);
+
+    // The same backend, but one destination at a time: a sink that cannot be
+    // opened is named in *report and the others are kept.  The result is null only
+    // when no destination could be built at all; StderrLogger is the usual answer
+    // then.
+    //
+    // The constructor is still the strict path: a configuration that should stop
+    // the program is a broken configuration, and an exception at startup says so.
+    // Use open() in a daemon that must come up with what it can.
+    static std::unique_ptr<SpdlogBackend> open(const Config &config, Report *report = 0);
+
+    // Installs this backend as both defaults a process has: logforge's (the
+    // macros and the ambient binding) and spdlog's (its free functions, which
+    // libraries that log behind the caller's back use).  Missing the second one is
+    // a silent regression -- those lines go to spdlog's built-in console logger
+    // and never reach the file the configuration asked for.
+    //
+    // The backend must outlive the process default; a program installs one backend
+    // at startup and keeps it.  If it does not, the destructor clears logforge's
+    // default again rather than leaving a dangling pointer behind.
+    void install_as_default();
 
     // Backends are shared with the rest of the process through the Logger
     // interface, so they must not be copied.
@@ -102,6 +148,10 @@ public:
 
 private:
     struct Impl;
+
+    // Takes over a partially built backend; open() is the only caller.
+    explicit SpdlogBackend(std::unique_ptr<Impl> impl);
+
     std::unique_ptr<Impl> impl_;
 };
 
