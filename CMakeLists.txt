@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(logforge
-    VERSION 1.4.0
+    VERSION 1.4.1
     DESCRIPTION "A small dependency-free logging bridge with a spdlog backend"
     LANGUAGES CXX)
 
@@ -12,7 +12,7 @@ include(GNUInstallDirs)
 #
 #   1. options
 #   2. logforge::core   -- the interface every producer talks to (header only)
-#   3. logforge::spdlog -- the backend (added in a later milestone)
+#   3. logforge::spdlog -- the spdlog backend (static, optional)
 #   4. tests / examples this repository builds for itself
 #   5. install / export rules
 #
@@ -290,9 +290,9 @@ endif()
 # Install and package
 #
 # logforge::core is header only, so exporting it is a matter of shipping the
-# header tree plus a config file.  The backend target joins the same export in a
-# later milestone; consumers still only ever name logforge::core or
-# logforge::spdlog.
+# header tree plus a config file.  The backend travels in the same export
+# because its usage requirements name spdlog::spdlog; consumers still only ever
+# name logforge::core or logforge::spdlog.
 # ---------------------------------------------------------------------------
 if(LOGFORGE_INSTALL)
     include(CMakePackageConfigHelpers)

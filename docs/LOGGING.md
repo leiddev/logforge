@@ -36,8 +36,8 @@ Three properties come out of that order:
   path may pass an expensive expression without guarding it.
 - **Rendering happens once**, in the front end, and the backend receives text.
   A backend never parses a format string.
-- **A backend only writes.** That is the whole job, which is why replacing one is
-  a link-time decision rather than a refactor.
+- **A backend only writes.** That is the whole job, which is why a replacement
+  changes start-up code and one library target rather than every call site.
 
 ## 2. The interface
 
@@ -253,7 +253,14 @@ logs through spdlog's global logger). Doing only the first is the classic
 half-install: the file is missing the lines of everything that went through
 spdlog, and nothing reports it. A backend that is installed and then destroyed
 clears logforge's default again, so the process does not keep a dangling pointer
-while it shuts down.
+while it shuts down. spdlog's registry holds a `shared_ptr`, so it keeps the
+logger alive and stays safe to call; that is why the destructor does not try to
+unregister anything there.
+
+`Config::level` sets both this backend's `enabled()` and spdlog's own level, so
+the two filters agree. Calling `native()->set_level()` afterwards changes only
+spdlog's, and both filters then apply -- which is the honest outcome of using
+the escape hatch, and visible in the log the first time a line goes missing.
 
 `backend.native()` returns the `spdlog::logger`, which is the escape hatch for
 named loggers, custom sinks and spdlog's backtrace buffer. `backend.flush()`
@@ -316,6 +323,12 @@ public:
 - `enabled()` must be cheap and thread safe: it runs on every statement.
 - `log()` must not outlive its arguments, and must not recurse into the same
   backend from inside `log()` -- the sinks that do not deadlock will interleave.
+- `log()` may be called from several threads at once, on a backend that was
+  installed once. A backend that shares a `FILE*`, a buffer or a timestamp
+  cache has to lock it; `StderrLogger` relies on the C library's own lock for
+  this, and the spdlog backend gets it from spdlog's `_mt` sinks.
+- `enabled()` and `log()` must agree. A backend that drops what `enabled()`
+  accepted is invisible until somebody notices the missing line.
 - `Level::off` is a filter setting, not a severity: `enabled(Level::off)` must be
   false whatever the configured minimum is.
 
@@ -407,3 +420,10 @@ void Bridge::forward(const TheirRecord &record) {
                      record.component.c_str(), record.file, record.line);
 }
 ```
+
+### From this backend to a different one
+
+Call sites keep working; the work is in start-up and in what the new backend has
+to reproduce. The checklist, the behaviour to match and the one thing a swap
+does not fix -- dependencies that log through spdlog's global logger -- are in
+the README under *Replacing the backend*.

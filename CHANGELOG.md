@@ -4,6 +4,46 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] - 2026-11-10
+
+Documentation, and the comments and example that had outlived their milestone.
+No API, behaviour or build change.
+
+### Added
+
+- README: *Why not spdlog directly* puts what a consumer gets against what it
+  gives up, and says when spdlog itself is the better choice. *Where spdlog is
+  allowed to appear* splits the boundary into headers, CMake targets, process
+  state and package config -- including the one that was never written down: a
+  package built with the backend runs `find_dependency(spdlog)` even when the
+  consumer links only `logforge::core`. *What the spdlog backend uses* lists the
+  API surface and what it leaves alone, so a replacement backend is a known
+  amount of work. *Replacing the backend* is the checklist, with the part a
+  swap does not fix -- dependencies that log through spdlog's global logger.
+- `docs/LOGGING.md`: the backend contract states that `log()` is called
+  concurrently and that `enabled()` must agree with what `log()` writes, and
+  explains why the destructor clears logforge's default but not spdlog's.
+
+### Changed
+
+- The first README bullet named `log(level, text, size)`, which is not the
+  interface, and said the core "includes nothing", which reads as "no standard
+  headers". Both now describe the code as it is.
+- The README no longer says a backend swap changes nothing but where a line
+  goes: the body is unchanged, but a pattern's `%l` is spdlog's `warning` where
+  `to_string(Level::warn)` is `warn`.
+
+### Fixed
+
+- `spdlog_backend.hpp` claimed a public surface free of a specific spdlog
+  version, while `native()` and `native_shared()` name `spdlog::logger`. The
+  comment now says what the forward declaration actually buys.
+- `examples/backend_configuration.cpp` installed its backend with
+  `set_default()` and cleared it by hand, instead of the `install_as_default()`
+  the documentation recommends since 1.4.0.
+- `CMakeLists.txt` still described the backend as "added in a later milestone"
+  and as joining the export in one.
+
 ## [1.4.0] - 2026-11-09
 
 ### Added
