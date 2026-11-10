@@ -8,10 +8,12 @@
 #include <memory>
 #include <string>
 
-// spdlog is behind this file, not in it: forward declaring the logger keeps
-// spdlog's headers (and its fmt) out of every translation unit that only wants to
-// install a backend, and keeps the public surface free of a specific spdlog
-// version.
+// spdlog is behind this file, not in it: the header forward declares
+// spdlog::logger instead of including it, so a translation unit that only
+// installs a backend compiles no spdlog and no fmt header, and no spdlog version
+// is baked into the ABI.  The type still appears in native() and native_shared()
+// -- that is the escape hatch, and a caller that uses them includes spdlog
+// itself.
 namespace spdlog {
 class logger;
 }

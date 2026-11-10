@@ -32,7 +32,7 @@ int main(int argc, char **argv) {
     }
 
     logforge::SpdlogBackend backend(config);
-    logforge::set_default(&backend);
+    backend.install_as_default();
 
     LOGFORGE_LOG_INFO("pipeline started");
     LOGFORGE_LOG_WARN("latency {:.1f} ms", 12.5);
@@ -41,7 +41,6 @@ int main(int argc, char **argv) {
     // The backend owns its sinks; flushing before the object goes away is only
     // strictly needed because this program exits right after.
     backend.flush();
-    logforge::set_default(0);
 
     return 0;
 }
