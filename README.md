@@ -22,7 +22,7 @@ spdlog backend and a renderer for `{}`-style format strings.
   it. A package built with the backend enabled still asks CMake for spdlog at
   configure time -- see [Where spdlog is allowed to appear](#where-spdlog-is-allowed-to-appear).
 
-> Status: **1.4.1.** The 1.0.0 API is frozen; a breaking change from here needs a
+> Status: **1.4.2.** The 1.0.0 API is frozen; a breaking change from here needs a
 > major version.
 
 Full guide: [docs/LOGGING.md](docs/LOGGING.md) -- the interface, where a line
