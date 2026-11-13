@@ -131,4 +131,57 @@ TEST_F(AmbientTest, BindingIsInvisibleToOtherThreads) {
     EXPECT_EQ(&bound, logforge::current());
 }
 
+// The documentation promises the binding is restored on every exit path,
+// "including an exception". An unwind is exactly the path a scope guard written
+// with a bare assignment instead of a destructor would get wrong, and it is the
+// path a per-object logger is most likely to be used on -- inside a callback
+// that throws.
+TEST_F(AmbientTest, ABindingIsRestoredWhenTheScopeThrows) {
+    SilentLogger fallback;
+    SilentLogger bound;
+    logforge::set_default(&fallback);
+
+    try {
+        const logforge::ScopedBinding binding(&bound);
+        EXPECT_EQ(&bound, logforge::current());
+        throw 7;
+    } catch (int) {
+    }
+
+    EXPECT_EQ(&fallback, logforge::current());
+}
+
+// A binding on top of a binding that throws restores the outer one, not the
+// default: each ScopedBinding remembers what was current when it was built, and
+// both unwind in the order they were built.
+TEST_F(AmbientTest, NestedBindingsUnwindInOrderWhenTheInnerThrows) {
+    SilentLogger fallback;
+    SilentLogger outer;
+    SilentLogger inner;
+    logforge::set_default(&fallback);
+
+    try {
+        const logforge::ScopedBinding first(&outer);
+        const logforge::ScopedBinding second(&inner);
+        EXPECT_EQ(&inner, logforge::current());
+        throw 7;
+    } catch (int) {
+    }
+
+    EXPECT_EQ(&fallback, logforge::current());
+}
+
+// set_default(nullptr) puts the process back to "nobody is listening", which is
+// the state the destructor of a backend restores. After the thread binding is
+// gone too, current() has to be null rather than the last logger that was set.
+TEST_F(AmbientTest, ClearingTheDefaultLeavesNothingCurrent) {
+    SilentLogger logger;
+    logforge::set_default(&logger);
+    {
+        const logforge::ScopedBinding binding(&logger);
+        logforge::set_default(0);
+    }
+    EXPECT_EQ(static_cast<logforge::Logger *>(0), logforge::current());
+}
+
 } // namespace

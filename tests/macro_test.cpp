@@ -124,6 +124,97 @@ TEST_F(MacroTest, ATagReachesTheBackendAsAComponent) {
     EXPECT_EQ("socket closed", recorder.captured[0].text);
 }
 
+// The macro uses the logger and the level more than once -- a null check, a
+// level check and the dispatch -- so a call site may pass an expression with a
+// side effect in either position only because each is evaluated exactly once.
+TEST_F(MacroTest, TheLoggerAndTheLevelAreEvaluatedOnce) {
+    RecordingLogger recorder;
+    int logger_evaluations = 0;
+    int level_evaluations = 0;
+
+    LOGFORGE_LOG_AT((++logger_evaluations, static_cast<logforge::Logger *>(&recorder)),
+                    (++level_evaluations, logforge::Level::info), "once");
+
+    EXPECT_EQ(1, logger_evaluations);
+    EXPECT_EQ(1, level_evaluations);
+    ASSERT_EQ(1u, recorder.captured.size());
+    EXPECT_EQ(logforge::Level::info, recorder.captured[0].level);
+}
+
+// The same for LOGFORGE_LOG, whose logger is logforge::current() rather than
+// the caller's expression: the level alone is the caller's.
+TEST_F(MacroTest, TheLevelOfTheAmbientFormIsEvaluatedOnce) {
+    RecordingLogger recorder;
+    logforge::set_default(&recorder);
+    int level_evaluations = 0;
+
+    LOGFORGE_LOG((++level_evaluations, logforge::Level::warn), "ambient");
+
+    EXPECT_EQ(1, level_evaluations);
+    ASSERT_EQ(1u, recorder.captured.size());
+    EXPECT_EQ(logforge::Level::warn, recorder.captured[0].level);
+}
+
+// The tagged form with an explicit logger: the one combination of the two
+// dimensions the table in the documentation lists and no test had exercised.
+TEST_F(MacroTest, AnExplicitLoggerAndATagTogether) {
+    RecordingLogger owned;
+    RecordingLogger bound;
+    logforge::set_default(&bound);
+
+    const logforge::ScopedBinding binding(&bound);
+    LOGFORGE_LOG_AT_TAGGED(&owned, "udp", logforge::Level::error, "send failed: {}", 9);
+
+    EXPECT_EQ(0u, bound.captured.size());
+    ASSERT_EQ(1u, owned.captured.size());
+    EXPECT_EQ(logforge::Level::error, owned.captured[0].level);
+    EXPECT_EQ("udp", owned.captured[0].component);
+    EXPECT_EQ("send failed: 9", owned.captured[0].text);
+}
+
+// A tag is an optional field, and a null one has to reach the backend as null
+// rather than as a crash or an empty prefix.
+TEST_F(MacroTest, ANullTagReachesTheBackendAsNull) {
+    RecordingLogger recorder;
+    logforge::set_default(&recorder);
+
+    LOGFORGE_LOG_TAGGED(static_cast<const char *>(0), logforge::Level::info, "untagged");
+
+    ASSERT_EQ(1u, recorder.captured.size());
+    EXPECT_EQ("", recorder.captured[0].component);
+    EXPECT_EQ("untagged", recorder.captured[0].text);
+}
+
+// The level is checked before the arguments are rendered, so a statement that is
+// disabled costs one call to enabled() and nothing else. That was already
+// proved by a counting argument; this fixes the other half of the promise: the
+// message is not rendered either, which is the only other work a disabled
+// statement could be doing.
+TEST_F(MacroTest, ADisabledStatementDoesNotCallLog) {
+    class PickyLogger : public logforge::Logger {
+    public:
+        bool enabled(logforge::Level) const override { return false; }
+        void log(const logforge::Record &) override { ++calls; }
+        int calls = 0;
+    };
+
+    PickyLogger picky;
+    LOGFORGE_LOG_AT(&picky, logforge::Level::info, "value {:512}", 7);
+    EXPECT_EQ(0, picky.calls);
+}
+
+// A message with more braces than arguments keeps the braces that have none;
+// the macro still delivers exactly one record.
+TEST_F(MacroTest, AFewerArgumentsThanBracesStillLogsOneRecord) {
+    RecordingLogger recorder;
+    logforge::set_default(&recorder);
+
+    LOGFORGE_LOG_INFO("{} of {} pads", 3);
+
+    ASSERT_EQ(1u, recorder.captured.size());
+    EXPECT_EQ("3 of {} pads", recorder.captured[0].text);
+}
+
 TEST_F(MacroTest, NoLoggerIsANoOp) {
     EXPECT_EQ(static_cast<logforge::Logger *>(0), logforge::current());
     LOGFORGE_LOG_ERROR("nobody is listening {}", 1);

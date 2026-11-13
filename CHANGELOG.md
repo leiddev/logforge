@@ -4,6 +4,68 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+The suite grows the failure paths it was missing, and one of them found a real
+defect on MSVC.
+
+### Added
+
+- `tests/format_boundary_test.cpp`: the edges of the renderer. A width of exactly
+  512 is accepted and 513 is copied back as written; the precision limit the same
+  way; hex with a width, with and without zero padding; zero padding around a
+  sign; an unclosed `{{`, a stray `}` and an empty `{}`; and the specifiers that
+  parse in part and must still be rejected whole. Two behaviours the tests record
+  as they are: `"{7}"` is a width-only specifier and not a literal, and an
+  unclosed `"{{"` at the end of a message still collapses to one brace.
+- `tests/legacy_names_test.cpp`: the compat header's `#ifndef` guards, which are
+  its whole reason for being a separate header. The test defines `LOG_INFO` and
+  `LOG_WARN` itself before the include and checks that its own definitions
+  survive; it also pins `LOG_ERR` to error and `LOG_CRITICAL` to critical, which
+  a ported call site is likely to assume are synonyms.
+- `tests/spdlog_forward_decl_test.cpp`: a translation unit that includes
+  `<logforge/spdlog_backend.hpp>` and nothing else of spdlog's, compiled without
+  a single spdlog include directory on its compile line. The forward declaration
+  in that header is a promise no other test can check, because every other test
+  includes spdlog itself. Verified by adding an `#include <spdlog/spdlog.h>` to
+  the header and watching this target, and only this target, fail to compile.
+- `macro_test.cpp`: each of the logger and the level is evaluated once; the
+  untested `LOGFORGE_LOG_AT_TAGGED`; a null tag reaching the backend as null; a
+  disabled statement that does not call `log()`; and a message with fewer
+  arguments than braces still arriving as one record.
+- `ambient_test.cpp`: a `ScopedBinding` restored when its scope throws, and a
+  nested pair unwound by one exception.
+- `spdlog_backend_test.cpp`: `create_directories` for a bare file name, a relative
+  path, and a directory that already exists; the strict constructor throwing on
+  exactly the configuration `open()` reports and survives, for both a file and a
+  UDP destination; a UDP destination missing its host or its port being no sink at
+  all; `open()` with a null `Report`; one record reaching a console and a file at
+  once; the component prefix and the empty-component case; an embedded zero; a
+  null text being dropped; a destroyed backend leaving a *surviving* default
+  alone; spdlog keeping the logger alive after the backend is gone; and four
+  threads whose component prefixes must not mix.
+
+### Fixed
+
+- `logforge_build_flags` did not pass `/EHsc` to MSVC, so the build used MSVC's
+  default `/EHs-`, where a local object is not destroyed while an exception
+  unwinds. `ScopedBinding`'s destructor is exactly such an object, so its
+  "restore the previous logger on every exit path, including an exception" held
+  on GCC and Clang and silently did not on Windows -- a thread that threw out of
+  a bound scope kept writing to the logger it had bound. The new ambient tests
+  found it before the library shipped; `/EHsc` is now part of the flags target.
+
+### Changed
+
+- `set_pattern("")` is documented and tested for what it does rather than what it
+  sounds like: spdlog compiles the empty string into a formatter with no fields,
+  so the message body is dropped and only the pattern's newline is written.
+  `Config::pattern` still treats empty as "keep the default", and the asymmetry
+  between the two is now in the suite.
+- The test suite runs on the Windows and Linux builds; it was also run on a
+  Hi3516 (Cortex-A7, glibc 2.24) target for the behaviours that do not need
+  GoogleTest.
+
 ## [1.4.1] - 2026-11-10
 
 Documentation, and the comments and example that had outlived their milestone.

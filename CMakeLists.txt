@@ -85,7 +85,12 @@ target_compile_features(logforge_core INTERFACE cxx_std_11)
 add_library(logforge_build_flags INTERFACE)
 
 if(MSVC)
-    target_compile_options(logforge_build_flags INTERFACE /utf-8 /W4)
+    # /EHsc is not optional here: without it MSVC compiles with /EHs- /EHc-,
+    # where a local object is not guaranteed to be destroyed while an exception
+    # unwinds. ScopedBinding is exactly that object -- its whole contract is
+    # "restore the previous logger on every exit path, including an exception"
+    # -- and the unit tests caught it being skipped.
+    target_compile_options(logforge_build_flags INTERFACE /utf-8 /W4 /EHsc)
     if(LOGFORGE_WERROR)
         target_compile_options(logforge_build_flags INTERFACE /WX)
     endif()
@@ -261,7 +266,9 @@ if(LOGFORGE_BUILD_TESTS)
         logforge_add_test(ambient_test)
         logforge_add_test(stderr_logger_test)
         logforge_add_test(format_test)
+        logforge_add_test(format_boundary_test)
         logforge_add_test(macro_test)
+        logforge_add_test(legacy_names_test)
 
         # Same headers, but with the source location compiled out; the macro has
         # to pass a literal null in that configuration.
@@ -276,6 +283,37 @@ if(LOGFORGE_BUILD_TESTS)
             target_link_libraries(spdlog_backend_test PRIVATE
                 logforge::spdlog ${LOGFORGE_GTEST_LIBS} logforge_build_flags Threads::Threads)
             add_test(NAME spdlog_backend_test COMMAND spdlog_backend_test)
+
+            # Links the backend, so the link line has spdlog on it, but the
+            # translation unit itself is compiled without a single spdlog header
+            # on its include path. That is the promise spdlog_backend.hpp makes
+            # with its forward declaration, and the include path is the only
+            # place it can be checked: an #include added to the header turns this
+            # target into a compile error and leaves every other test green.
+            #
+            # Naming either spdlog::spdlog or logforge::spdlog puts spdlog's
+            # include directory on the compile line, because both carry it as a
+            # usage requirement. So the two halves are split: logforge's core
+            # headers come from this source tree, and the rest of the libraries
+            # arrive through a target that links them without any usage
+            # requirement of its own.
+            add_library(logforge_forward_decl_link INTERFACE)
+            target_link_libraries(logforge_forward_decl_link INTERFACE
+                $<TARGET_FILE:spdlog::spdlog>
+                $<TARGET_FILE:logforge_spdlog>)
+
+            add_executable(spdlog_forward_decl_test tests/spdlog_forward_decl_test.cpp)
+            target_link_libraries(spdlog_forward_decl_test PRIVATE
+                logforge_forward_decl_link
+                ${LOGFORGE_GTEST_LIBS} logforge_build_flags Threads::Threads)
+            # The build-tree dependency that $<TARGET_FILE:> alone does not
+            # express: without it, nothing makes CMake build the two libraries
+            # before the executable that links them.
+            add_dependencies(spdlog_forward_decl_test logforge_spdlog spdlog::spdlog)
+            target_include_directories(spdlog_forward_decl_test PRIVATE
+                ${CMAKE_CURRENT_SOURCE_DIR}/include
+                ${CMAKE_CURRENT_BINARY_DIR}/include)
+            add_test(NAME spdlog_forward_decl_test COMMAND spdlog_forward_decl_test)
         endif()
     elseif(LOGFORGE_REQUIRE_TESTS)
         message(FATAL_ERROR
